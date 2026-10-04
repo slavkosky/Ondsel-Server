@@ -5,13 +5,17 @@
 services:
   mongodb:
     image: mongo:8.0.23
+    restart: unless-stopped
     ports:
       - "${EXPOSE_DB_PORT:-27018}:27017"
+    environment:
+      GLIBC_TUNABLES: "glibc.pthread.rseq=1" # Temporary fix for glibc error on start
     volumes:
       - mongodb_data:/data/db
 
   backend:
     image: lens-backend
+    restart: unless-stopped
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -46,16 +50,19 @@ services:
 
   frontend:
     image: lens-frontend
+    restart: unless-stopped
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
         - VITE_APP_API_URL=${VITE_APP_API_URL:-http://localhost:3030/}
+        - VITE_APP_SOCKET_URL=${VITE_APP_SOCKET_URL:-/}
         - VITE_MATOMO_URL=${VITE_MATOMO_URL:-http://localhost:7000}
         - VITE_MATOMO_SITE=${VITE_MATOMO_SITE:-1}
         - VITE_STRIPE_PURCHASE_PEER_URL
     environment:
       - VITE_APP_API_URL
+      - VITE_APP_SOCKET_URL
       - VITE_MATOMO_URL
       - VITE_MATOMO_SITE
       - VITE_STRIPE_PURCHASE_PEER_URL
@@ -67,9 +74,11 @@ services:
 
   fc-worker-redis:
     image: redis:alpine
+    restart: unless-stopped
 
   fc-worker-api:
     image: lens-fc-worker-api
+    restart: unless-stopped
     build:
       context: ./FC-Worker
       dockerfile: Dockerfile.api
@@ -83,6 +92,7 @@ services:
 
   fc-worker-celery:
     image: lens-fc-worker-celery
+    restart: unless-stopped
     build:
       context: ./FC-Worker
       dockerfile: Dockerfile.celery
@@ -101,6 +111,7 @@ services:
     profiles:
       - matomo-enabled
     image: mariadb:11.4.4
+    restart: unless-stopped
     command: --max-allowed-packet=128M
     environment:
       - MYSQL_ROOT_PASSWORD=matomo
@@ -114,6 +125,7 @@ services:
     profiles:
       - matomo-enabled
     image: amrit3701/bitnami-matomo:5.8.0-debian-12-r4
+    restart: unless-stopped
     ports:
       - "7000:8080"
     environment:
