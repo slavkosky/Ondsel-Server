@@ -19,6 +19,7 @@ services:
       - "${PORT:-3030}:${PORT:-3030}"
     environment:
       - NODE_ENV=development
+      - KICAD_ENABLED=${KICAD_ENABLED:-true}
       - HOSTNAME=${HOSTNAME:-localhost}
       - PORT=${PORT:-3030}
       - DB_URL=mongodb://mongodb:27017/backend-db
@@ -85,6 +86,20 @@ services:
       - backend
       - fc-worker-redis
 
+  kicad-3dmodels:
+    image: lens-fc-worker-celery-dev
+    build:
+      context: ./FC-Worker
+      dockerfile: Dockerfile.celery.dev
+    command: ["sh", "scripts/fetch-kicad-3dmodels.sh", "/usr/share/kicad/3dmodels"]
+    environment:
+      - KICAD_ENABLED=${KICAD_ENABLED:-true}
+      - KICAD_3D_REF
+    restart: "no"
+    volumes:
+      - ./FC-Worker/scripts:/app/scripts
+      - ${KICAD_3DMODELS_VOLUME:-./kicad-3dmodels}:/usr/share/kicad/3dmodels
+
   fc-worker-celery:
     image: lens-fc-worker-celery-dev
     build:
@@ -94,15 +109,21 @@ services:
       - REDIS_HOST=fc-worker-redis
       - REDIS_PORT=6379
       - BACKEND_URL=${BACKEND_URL:-http://localhost:3030}
+      - KICAD_3D_LIBRARIES=/usr/share/kicad/3dmodels
     volumes:
       - ./FC-Worker/fc_worker:/app/fc_worker
       - ./FC-Worker/main.py:/app/main.py
+      - ${KICAD_3DMODELS_VOLUME:-./kicad-3dmodels}:/usr/share/kicad/3dmodels
     # bubblewrap (RUN_CODE_SNIPPET sandbox) needs CAP_SYS_ADMIN + writable cgroup.
     privileged: true
     network_mode: "service:backend"
     depends_on:
-      - backend
-      - fc-worker-redis
+      backend:
+        condition: service_started
+      fc-worker-redis:
+        condition: service_started
+      kicad-3dmodels:
+        condition: service_completed_successfully
 
   matomo-db:
     profiles:
@@ -169,3 +190,5 @@ volumes:
     name: matomo_data_dev
   keycloak_dev_data:
     name: keycloak_dev_data_dev
+  kicad_3dmodels:
+    name: kicad_3dmodels_dev
