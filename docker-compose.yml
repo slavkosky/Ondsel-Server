@@ -11,7 +11,7 @@ services:
     environment:
       GLIBC_TUNABLES: "glibc.pthread.rseq=1" # Temporary fix for glibc error on start
     volumes:
-      - mongodb_data:/data/db
+      - ./data/mongodb:/data/db
 
   backend:
     image: lens-backend
@@ -44,9 +44,12 @@ services:
       - DEFAULT_ADMIN_NAME
       - LOCAL_SIGNED_URL_SECRET
     volumes:
-      - uploads_data:/app/uploads
+      - ./data/uploads:/app/uploads
     depends_on:
       - mongodb
+    networks:
+      - default
+      - mail-network
 
   frontend:
     image: lens-frontend
@@ -68,7 +71,7 @@ services:
       - VITE_STRIPE_PURCHASE_PEER_URL
       - PROXY_SCHEME_PREFIX=${PROXY_SCHEME_PREFIX:-https://}
     ports:
-      - "3000:80"
+      - "3003:80"
     depends_on:
       - backend
 
@@ -119,7 +122,7 @@ services:
       - MYSQL_USER=matomo 
       - MYSQL_PASSWORD=matomo
     volumes:
-      - matomo_db:/var/lib/mysql
+      - ./data/matomo_db:/var/lib/mysql
 
   matomo:
     profiles:
@@ -140,16 +143,11 @@ services:
       - MATOMO_PASSWORD=${MATOMO_PASSWORD:-admin@local.test}
       - MATOMO_EMAIL=${MATOMO_EMAIL:-admin@local.test}
     volumes:
-      - matomo_data:/bitnami/matomo
+      - ./data/matomo_data:/bitnami/matomo
     depends_on:
       - matomo-db
-
-volumes:
-  mongodb_data:
-    name: mongodb_data
-  uploads_data:
-    name: uploads_data
-  matomo_db:
-    name: matomo_db
-  matomo_data:
-    name: matomo_data
+      
+networks:
+  mail-network:
+    external: true
+    name: mail-network
